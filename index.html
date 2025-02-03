@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive English Learning</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 2rem;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 2rem;
+        font-size: 2.5rem;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        padding: 1rem;
+      }
+
+      .image-card {
+        position: relative;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+        cursor: pointer;
+        background: #fff;
+      }
+
+      .image-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+      }
+
+      .image-card:active {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+      }
+
+      .image-card img {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.3s ease-out;
+        will-change: transform;
+      }
+
+      /* Sửa lại phần word-overlay trong CSS */
+      .word-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 1rem;
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: transform;
+        pointer-events: none; /* Thêm dòng này */
+      }
+
+      /* Thêm class mới cho chế độ học bình thường */
+      .learning-mode .word-overlay {
+        transform: translateY(100%);
+      }
+
+      .learning-mode .image-card:hover .word-overlay {
+        transform: translateY(0);
+      }
+
+      /* Thêm class cho chế độ listening */
+      .listening-mode .word-overlay {
+        transform: translateY(100%) !important;
+      }
+      .image-card:hover .word-overlay {
+        transform: translateY(0);
+      }
+
+      .word {
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        display: block;
+        text-transform: capitalize;
+      }
+
+      .ripple {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.4);
+        border-radius: 50%;
+        transform: scale(0);
+        animation: ripple-animation 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+        will-change: transform, opacity;
+      }
+
+      @keyframes ripple-animation {
+        to {
+          transform: scale(4);
+          opacity: 0;
+        }
+      }
+
+      /* Loading state */
+      .loading {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+        color: #2c3e50;
+        font-size: 1.2rem;
+      }
+
+      /* Thêm indicator khi đang phát âm thanh */
+      .playing::after {
+        content: "";
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        color: white;
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      }
+      /* Thêm vào phần style */
+      .controls {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        z-index: 1000;
+      }
+
+      .mode-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 20px;
+        background: #2c3e50;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .mode-button.active {
+        background: #e74c3c;
+      }
+
+      .start-container {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .start-button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 15px;
+        background: #27ae60;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .start-button:hover {
+        background: #219a52;
+      }
+
+      .score {
+        color: #2c3e50;
+        font-weight: bold;
+      }
+
+      /* Thêm style cho thông báo */
+      .feedback {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        border-radius: 10px;
+        color: white;
+        font-size: 1.2rem;
+        font-weight: bold;
+        display: none;
+        z-index: 1001;
+      }
+
+      .feedback.correct {
+        background: rgba(39, 174, 96, 0.9);
+      }
+
+      .feedback.wrong {
+        background: rgba(231, 76, 60, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Learn English with Images</h1>
+      <!-- Thêm phần này sau thẻ h1 -->
+      <div class="controls">
+        <button id="listeningMode" class="mode-button">Listening Mode</button>
+        <div id="startContainer" class="start-container">
+          <button id="startButton" class="start-button">Start</button>
+          <div id="score" class="score">Score: 0</div>
+        </div>
+      </div>
+      <div id="loading" class="loading">Loading voices...</div>
+      <div class="image-grid">
+        <div class="image-card" data-word="cat">
+          <img src="/api/placeholder/300/300" alt="Cat" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">Cat</span>
+          </div>
+        </div>
+        <div class="image-card" data-word="cuisin">
+          <img src="/api/placeholder/300/300" alt="cuisin" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">cuisin</span>
+          </div>
+        </div>
+        <div class="image-card" data-word="dog">
+          <img src="/api/placeholder/300/300" alt="Dog" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">Dog</span>
+          </div>
+        </div>
+        <div class="image-card" data-word="bird">
+          <img src="/api/placeholder/300/300" alt="Bird" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">Bird</span>
+          </div>
+        </div>
+        <div class="image-card" data-word="butterfly">
+          <img src="/api/placeholder/300/300" alt="Butterfly" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">Butterfly</span>
+          </div>
+        </div>
+        <div class="image-card" data-word="lion">
+          <img src="/api/placeholder/300/300" alt="Lion" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">Lion</span>
+          </div>
+        </div>
+        <div class="image-card" data-word="elephant">
+          <img src="/api/placeholder/300/300" alt="Elephant" loading="lazy" />
+          <div class="word-overlay">
+            <span class="word">Elephant</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const imageCards = document.querySelectorAll(".image-card");
+        const synth = window.speechSynthesis;
+        const loadingElement = document.getElementById("loading");
+        const listeningModeBtn = document.getElementById("listeningMode");
+        const startContainer = document.getElementById("startContainer");
+        const startButton = document.getElementById("startButton");
+        const scoreElement = document.getElementById("score");
+        const container = document.querySelector(".container"); // Thêm dòng này
+
+        let isListeningMode = false;
+        let currentWord = null;
+        let score = 0;
+        let englishVoice = null;
+
+        // Thêm class mặc định cho container
+        container.classList.add("learning-mode");
+
+        // Debounce function
+        function debounce(func, wait) {
+          let timeout;
+          return function executedFunction(...args) {
+            const later = () => {
+              clearTimeout(timeout);
+              func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+          };
+        }
+
+        // Khởi tạo voices
+        function initVoices() {
+          const voices = synth.getVoices();
+          englishVoice =
+            voices.find(
+              (voice) => voice.lang.startsWith("en") && voice.localService
+            ) || voices.find((voice) => voice.lang.startsWith("en"));
+
+          if (englishVoice) {
+            loadingElement.style.display = "none";
+          }
+        }
+
+        // Speech synthesis handler
+        const speakWord = debounce((word) => {
+          if (synth.speaking) {
+            synth.cancel();
+          }
+
+          const utterance = new SpeechSynthesisUtterance(word);
+          if (englishVoice) {
+            utterance.voice = englishVoice;
+          }
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          utterance.volume = 1;
+
+          synth.speak(utterance);
+        }, 300);
+
+        // Tạo feedback element
+        function showFeedback(isCorrect) {
+          const feedback = document.createElement("div");
+          feedback.className = `feedback ${isCorrect ? "correct" : "wrong"}`;
+          feedback.textContent = isCorrect
+            ? "Correct! 🎉"
+            : "Wrong! Try again 😢";
+          document.body.appendChild(feedback);
+          feedback.style.display = "block";
+
+          setTimeout(() => {
+            feedback.remove();
+          }, 1500);
+        }
+
+        // Chọn từ ngẫu nhiên
+        function getRandomWord() {
+          const words = Array.from(imageCards).map((card) => card.dataset.word);
+          return words[Math.floor(Math.random() * words.length)];
+        }
+
+        // Xử lý khi chọn từ
+        function handleWordSelection(selectedWord) {
+          if (
+            currentWord &&
+            selectedWord.toLowerCase() === currentWord.toLowerCase()
+          ) {
+            score += 10;
+            showFeedback(true);
+          } else {
+            score = Math.max(0, score - 5);
+            showFeedback(false);
+          }
+          scoreElement.textContent = `Score: ${score}`;
+
+          // Sau 1.5s chọn từ mới
+          setTimeout(() => {
+            if (isListeningMode) {
+              startListeningRound();
+            }
+          }, 1500);
+        }
+
+        // Bắt đầu vòng mới
+        function startListeningRound() {
+          currentWord = getRandomWord();
+          speakWord(currentWord);
+        }
+
+        // Event listeners
+        listeningModeBtn.addEventListener("click", () => {
+          isListeningMode = !isListeningMode;
+          listeningModeBtn.classList.toggle("active");
+          startContainer.style.display = isListeningMode ? "flex" : "none";
+
+          // Toggle classes cho container
+          container.classList.toggle("learning-mode");
+          container.classList.toggle("listening-mode");
+
+          if (!isListeningMode) {
+            currentWord = null;
+            score = 0;
+            scoreElement.textContent = "Score: 0";
+          }
+        });
+
+        startButton.addEventListener("click", () => {
+          if (isListeningMode) {
+            startListeningRound();
+          }
+        });
+
+        // Ripple effect handler
+        function createRipple(event) {
+          const card = event.currentTarget;
+          const ripple = document.createElement("div");
+          const rect = card.getBoundingClientRect();
+
+          ripple.className = "ripple";
+          ripple.style.left = `${event.clientX - rect.left}px`;
+          ripple.style.top = `${event.clientY - rect.top}px`;
+
+          card.appendChild(ripple);
+
+          ripple.addEventListener("animationend", () => {
+            ripple.remove();
+          });
+        }
+
+        // Card event listeners
+        imageCards.forEach((card) => {
+          card.addEventListener("mouseenter", () => {
+            if (!isListeningMode) {
+              speakWord(card.dataset.word);
+              card.classList.add("playing");
+            }
+          });
+
+          card.addEventListener("mouseleave", () => {
+            card.classList.remove("playing");
+          });
+
+          card.addEventListener("click", (e) => {
+            createRipple(e);
+            if (isListeningMode) {
+              handleWordSelection(card.dataset.word);
+            }
+          });
+        });
+
+        // Initialize voices
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+          loadingElement.style.display = "block";
+          speechSynthesis.onvoiceschanged = initVoices;
+        }
+
+        // Cleanup
+        window.addEventListener("beforeunload", () => {
+          if (synth.speaking) {
+            synth.cancel();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
